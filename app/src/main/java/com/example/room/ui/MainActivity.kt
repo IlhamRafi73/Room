@@ -1,5 +1,6 @@
 package com.example.room.ui
 
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.provider.SyncStateContract.Helpers.insert
@@ -14,13 +15,12 @@ import com.example.room.databinding.ActivityMainBinding
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), AdapterView.OnItemClickListener {
 
     private lateinit var binding: ActivityMainBinding
 
     private lateinit var mNotesDao: NoteDao
     private lateinit var executorService: ExecutorService
-    private var updateId: Int=0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,36 +31,9 @@ class MainActivity : AppCompatActivity() {
         val db = NoteRoomDatabase.getDatabase(this)
         mNotesDao = db!!.noteDao()!!
         with(binding) {
-            btnnn.setOnClickListener(View.OnClickListener {
-                insert(
-                    Note(
-                        title = txtTitle.text.toString(),
-                        description = txtDesc.text.toString(),
-                        date = txtDate.text.toString()
-                    )
-                )
-                setEmptyField()
-            })
 
-            btnUpdate.setOnClickListener {
-                update(
-                    Note(
-                        id = updateId,
-                        title = txtTitle.getText().toString(),
-                        description = txtDesc.getText().toString(),
-                        date = txtDate.getText().toString()
-                    )
-                )
-                updateId = 0
-                setEmptyField()
-            }
-
-            listView.setOnItemClickListener { adapterView, _, i, _ ->
-                val item = adapterView.adapter.getItem(i) as Note
-                updateId = item.id
-                txtTitle.setText(item.title)
-                txtDesc.setText(item.description)
-                txtDate.setText(item.date)
+            btnAdd.setOnClickListener {
+                startActivity(Intent(this@MainActivity, AddNote::class.java))
             }
 
             listView.onItemLongClickListener =
@@ -69,9 +42,20 @@ class MainActivity : AppCompatActivity() {
                     delete(item)
                     true
                 }
-
-
+            listView.onItemClickListener = this@MainActivity
         }
+    }
+
+    override fun onItemClick(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+        val selectedNote = binding.listView.adapter.getItem(position) as Note
+
+        // Pass the selected note's information to the AddNote activity for editing
+        val intent = Intent(this, AddNote::class.java)
+        intent.putExtra("noteId", selectedNote.id) // Pass the ID of the selected note
+        intent.putExtra("noteTitle", selectedNote.title)
+        intent.putExtra("noteDesc", selectedNote.description)
+        intent.putExtra("noteDate", selectedNote.date)
+        startActivity(intent)
     }
 
     private fun getAllNotes() {
@@ -81,26 +65,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun insert(note: Note) {
-        executorService.execute { mNotesDao.insert(note) }
-    }
 
     private fun delete(note: Note) {
         executorService.execute { mNotesDao.delete(note) }
     }
 
-    private fun update(note: Note) {
-        executorService.execute { mNotesDao.update(note) }
-    }
-
     override fun onResume() {
         super.onResume()
         getAllNotes()
-    }
-
-    private fun setEmptyField() {
-        binding.txtTitle.setText("")
-        binding.txtDesc.setText("")
-        binding.txtDate.setText("")
     }
 }
